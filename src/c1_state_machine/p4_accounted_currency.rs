@@ -9,7 +9,7 @@
 //! Each user is associated with an account balance and users are able to send money to other users.
 
 use super::{StateMachine, User};
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::write};
 
 /// This state machine models a multi-user currency system. It tracks the balance of each
 /// user and allows users to send funds to one another.
@@ -45,7 +45,44 @@ impl StateMachine for AccountedCurrency {
     type Transition = AccountingTransaction;
 
     fn next_state(starting_state: &Balances, t: &AccountingTransaction) -> Balances {
-        todo!("Exercise 1")
+        let mut next_state = starting_state.clone();
+        fn increase_account_balance(state: &mut Balances, acc: &User, amount: &u64) {
+            if let Some(balance) = state.get_mut(acc) {
+                *balance = balance.saturating_add(*amount);
+            } else if *amount > 0 {
+                state.insert(*acc, *amount);
+            }
+        }
+        fn decrease_account_balance(state: &mut Balances, acc: &User, amount: &u64) {
+            if let Some(balance) = state.get_mut(acc) {
+                *balance = balance.saturating_sub(*amount);
+                if *balance == 0 {
+                    state.remove(acc);
+                }
+            }
+        }
+        println!("{:?}", next_state);
+        match t {
+            AccountingTransaction::Mint { minter, amount } => {
+                increase_account_balance(&mut next_state, minter, amount);
+            }
+            AccountingTransaction::Burn { burner, amount } => {
+                decrease_account_balance(&mut next_state, burner, amount);
+            }
+            AccountingTransaction::Transfer {
+                sender,
+                receiver,
+                amount,
+            } => {
+                if let Some(sender_balance) = next_state.get_mut(sender) {
+                    if *sender_balance >= *amount {
+                        decrease_account_balance(&mut next_state, sender, amount);
+                        increase_account_balance(&mut next_state, receiver, amount);
+                    }
+                }
+            }
+        };
+        next_state
     }
 }
 
