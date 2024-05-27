@@ -99,7 +99,6 @@ impl StateMachine for DigitalCashSystem {
         let mut new_state = starting_state.clone();
         match t {
             CashTransaction::Mint { minter, amount } => {
-                println!("{:?} - {:?}", minter, amount);
                 // using `add_bill` method to add a new bill with serial as `next_serial()`
                 let bill = Bill {
                     owner: *minter,
@@ -107,6 +106,7 @@ impl StateMachine for DigitalCashSystem {
                     serial: starting_state.next_serial(),
                 };
                 new_state.add_bill(bill);
+                return new_state;
             }
             CashTransaction::Transfer { spends, receives } => {
                 // if `spends` is empty, we don't do anything
@@ -181,7 +181,6 @@ impl StateMachine for DigitalCashSystem {
 
                 match process_transfer(&mut new_state) {
                     Ok(_) => {
-                        dbg!(new_state.clone());
                         return new_state;
                     }
                     Err(err) => {
