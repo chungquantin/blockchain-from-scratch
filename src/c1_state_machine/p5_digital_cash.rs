@@ -3,8 +3,10 @@
 //! cash bills. Each bill has an amount and an owner, and can be spent in its entirety.
 //! When a state transition spends bills, new bills are created in lesser or equal amount.
 
+use anyhow::{Error, Result};
+
 use super::{StateMachine, User};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 /// This state machine models a multi-user currency system. It tracks a set of bills in
 /// circulation, and updates that set when money is transferred.
@@ -94,7 +96,102 @@ impl StateMachine for DigitalCashSystem {
     type Transition = CashTransaction;
 
     fn next_state(starting_state: &Self::State, t: &Self::Transition) -> Self::State {
-        todo!("Exercise 1")
+        let mut new_state = starting_state.clone();
+        match t {
+            CashTransaction::Mint { minter, amount } => {
+                println!("{:?} - {:?}", minter, amount);
+                // using `add_bill` method to add a new bill with serial as `next_serial()`
+                let bill = Bill {
+                    owner: *minter,
+                    amount: *amount,
+                    serial: starting_state.next_serial(),
+                };
+                new_state.add_bill(bill);
+            }
+            CashTransaction::Transfer { spends, receives } => {
+                // if `spends` is empty, we don't do anything
+                if spends.is_empty() {
+                    return new_state;
+                }
+                // if `receives` is empty, we remove the discrepancy from the new state
+                if receives.is_empty() {
+                    new_state.bills = HashSet::default();
+                    return new_state;
+                }
+                // closure to handle the transfer
+                let process_transfer = |new_state: &mut State| -> Result<()> {
+                    let (spend_id, receive_id) = ("spend", "receive");
+                    let mut visited_serial: HashMap<(&'static str, u64), bool> = HashMap::default();
+                    let mut total_spends: u64 = 0;
+                    let mut total_receive: u64 = 0;
+
+                    for s in spends {
+                        // if the `spend` bill is not exist in the current state => ERROR
+                        if !new_state.bills.contains(s) {
+                            return Err(Error::msg("bill does not exist"));
+                        }
+                        // if the `spend` bill serial is duplicate current state => ERROR
+                        if visited_serial.contains_key(&(spend_id, s.serial)) {
+                            return Err(Error::msg("invalid serial key"));
+                        }
+                        // mark the current `spend` bill serial as visited so we can check with receive later
+                        visited_serial.insert((spend_id, s.serial), true);
+
+                        // remove the `spend` bill from the new bill list as it is processed already
+                        new_state.bills.remove(s);
+
+                        // increase the total spend amount
+                        total_spends = total_spends.saturating_add(s.amount);
+                    }
+
+                    for r in receives {
+                        // if there is a serial with invalid value => ERROR
+                        if r.serial == u64::MAX {
+                            return Err(Error::msg("invalid serial key"));
+                        }
+                        // if the `receive` bill is same as `spend` bill, identified by serial => ERROR
+                        if visited_serial.contains_key(&(spend_id, r.serial))
+                            || visited_serial.contains_key(&(receive_id, r.serial))
+                        {
+                            return Err(Error::msg("invalid serial key"));
+                        }
+                        // mark the `receive` bill as visited
+                        visited_serial.insert((receive_id, r.serial), true);
+
+                        // if the current `receive` bill amount is larger than `total_spends` => ERROR
+                        if r.amount > total_spends {
+                            return Err(Error::msg("exceed spending amount"));
+                        }
+                        // increase the total_receive so we can check if the value is zero later
+                        total_receive += r.amount;
+
+                        // substract the total_spends with `receive` bill amount
+                        total_spends = total_spends.saturating_sub(r.amount);
+
+                        // add `receive` bill to the new state if it passes all checks
+                        new_state.add_bill(r.clone());
+                    }
+
+                    // if total_receive is zero => ERROR
+                    if total_receive == 0 {
+                        return Err(Error::msg("output 0 value"));
+                    }
+                    Ok(())
+                };
+
+                match process_transfer(&mut new_state) {
+                    Ok(_) => {
+                        dbg!(new_state.clone());
+                        return new_state;
+                    }
+                    Err(err) => {
+                        // for debugging
+                        println!("{:?}", err.to_string());
+                    }
+                }
+            }
+        }
+        starting_state.clone()
     }
 }
 
@@ -614,18 +711,19 @@ fn sm_5_spending_from_bob_to_all() {
 
 #[test]
 fn sm_5_spending_from_charlie_to_all() {
-    let mut start = State::from([
-        Bill {
-            owner: User::Charlie,
-            amount: 68,
-            serial: 54,
-        },
-        Bill {
-            owner: User::Alice,
-            amount: 4000,
-            serial: 58,
-        },
-    ]);
+    let mut start =
+        State::from([
+            Bill {
+                owner: User::Charlie,
+                amount: 68,
+                serial: 54,
+            },
+            Bill {
+                owner: User::Alice,
+                amount: 4000,
+                serial: 58,
+            },
+        ]);
     start.set_serial(59);
     let end = DigitalCashSystem::next_state(
         &start,
@@ -654,28 +752,29 @@ fn sm_5_spending_from_charlie_to_all() {
             ],
         },
     );
-    let mut expected = State::from([
-        Bill {
-            owner: User::Alice,
-            amount: 4000,
-            serial: 58,
-        },
-        Bill {
-            owner: User::Alice,
-            amount: 42,
-            serial: 59,
-        },
-        Bill {
-            owner: User::Bob,
-            amount: 5,
-            serial: 60,
-        },
-        Bill {
-            owner: User::Charlie,
-            amount: 5,
-            serial: 61,
-        },
-    ]);
+    let mut expected =
+        State::from([
+            Bill {
+                owner: User::Alice,
+                amount: 4000,
+                serial: 58,
+            },
+            Bill {
+                owner: User::Alice,
+                amount: 42,
+                serial: 59,
+            },
+            Bill {
+                owner: User::Bob,
+                amount: 5,
+                serial: 60,
+            },
+            Bill {
+                owner: User::Charlie,
+                amount: 5,
+                serial: 61,
+            },
+        ]);
     expected.set_serial(62);
     assert_eq!(end, expected);
 }
