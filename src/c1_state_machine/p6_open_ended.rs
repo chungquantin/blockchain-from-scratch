@@ -34,7 +34,7 @@ type Col = i16;
 type Position = (Row, Col);
 
 #[derive(Clone, Eq, PartialEq, Debug)]
-enum Color {
+pub enum Color {
     Black,
     White,
 }
@@ -59,7 +59,7 @@ impl Color {
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
-enum ChessPiece {
+pub enum ChessPiece {
     Pawn(Color),
     Bishop(Color),
     Knight(Color),
@@ -167,18 +167,16 @@ enum ChessGameStatus {
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct State {
     /// Chess Board
-    /// 				Column
-    /// 						|
-    ///   				| 1 2 3 4 5 6 7 8
-    /// Row - - - - - - - - - -
-    /// 				1 | R k B Q K B k R
-    /// 				2 | P P P P P P P P
-    /// 				3 |
-    /// 				4 |
-    /// 				5 |
-    /// 				6 |
-    /// 				7 | P P P P P P P P
-    /// 				8 | R k B Q K B k R
+    /// X | 1 2 3 4 5 6 7 8
+    /// - - - - - - - - - -
+    /// 1 | R k B Q K B k R
+    /// 2 | P P P P P P P P
+    /// 3 |
+    /// 4 |
+    /// 5 |
+    /// 6 |
+    /// 7 | P P P P P P P P
+    /// 8 | R k B Q K B k R
     board: HashMap<Position, ChessPiece>,
     side_color: Color,
     status: ChessGameStatus,
@@ -364,7 +362,9 @@ mod test {
 
     #[test]
     fn test_success_move_pawn() {
-        let state = State::default();
+        let mut state = State::default();
+        state.board_move((7, 1), (6, 2));
+
         let end = State::next_state(
             &state,
             &Transition::Move {
@@ -443,4 +443,3 @@ mod test {
         assert_eq!(end, expected);
     }
 }
-

@@ -1,7 +1,6 @@
-//! We want to make the simplest possible blockchain to begin with. Just a hash-linked data structure.
-//! We learned from the lecture that it is actually the headers that are hash linked, so let's
-//! start with that.
-//!
+//! We want to make the simplest possible blockchain to begin with. Just a hash-linked data
+//! structure. We learned from the lecture that it is actually the headers that are hash linked, so
+//! let's start with that.
 
 use crate::hash;
 
@@ -12,127 +11,164 @@ type Hash = u64;
 /// The most basic blockchain header possible. We learned its basic structure from lecture.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Header {
-    parent: Hash,
-    height: u64,
-    // We know from the lecture that we will probably need these, but we don't need them yet.
-    extrinsics_root: (),
-    state_root: (),
-    consensus_digest: (),
+	parent: Hash,
+	height: u64,
+	// We know from the lecture that we will probably need these, but we don't need them yet.
+	extrinsics_root: (),
+	state_root: (),
+	consensus_digest: (),
 }
 
 // Here are the methods for creating a new header and verifying headers.
 // It is your job to write them.
 impl Header {
-    /// Returns a new valid genesis header.
-    fn genesis() -> Self {
-        todo!("Exercise 1")
-    }
+	/// Returns a new valid genesis header.
+	fn genesis() -> Self {
+		return Self {
+			height: 0,
+			parent: Hash::default(),
+			state_root: (),
+			extrinsics_root: (),
+			consensus_digest: (),
+		};
+	}
 
-    /// Create and return a valid child header.
-    fn child(&self) -> Self {
-        todo!("Exercise 2")
-    }
+	/// Create and return a valid child header.
+	fn child(&self) -> Self {
+		return Self {
+			height: self.height + 1,
+			parent: hash(self),
+			state_root: (),
+			extrinsics_root: (),
+			consensus_digest: (),
+		};
+	}
 
-    /// Verify that all the given headers form a valid chain from this header to the tip.
-    /// An "entire" chain can be verified by calling this method on a genesis header.
-    /// This method may assume that the block on which it is called is valid, but it
-    /// must verify all of the blocks in the slice;
-    fn verify_sub_chain(&self, chain: &[Header]) -> bool {
-        todo!("Exercise 3")
-    }
+	/// Verify that all the given headers form a valid chain from this header to the tip.
+	/// An "entire" chain can be verified by calling this method on a genesis header.
+	/// This method may assume that the block on which it is called is valid, but it
+	/// must verify all of the blocks in the slice;
+	fn verify_sub_chain(&self, chain: &[Header]) -> bool {
+		let mut curr_hash = hash(self);
+		let mut is_verified: bool = true;
+		let mut chain_iter = chain.iter();
+		let mut curr_height = self.height;
+		while let Some(header) = chain_iter.next() {
+			if header.height - curr_height != 1 {
+				return false;
+			}
+			is_verified &= header.parent == curr_hash;
+			curr_hash = hash(header);
+			curr_height = header.height;
+		}
+		is_verified
+	}
 }
 
 // And finally a few functions to use the code we just
 
 /// Build and return a valid chain with exactly five blocks including the genesis block.
 fn build_valid_chain_length_5() -> Vec<Header> {
-    todo!("Exercise 4")
+	let g = Header::genesis();
+	let mut curr_header = g.clone();
+	let mut chain = vec![curr_header.clone()];
+	for _ in 0..4 {
+		chain.push(curr_header.child());
+		curr_header = curr_header.child();
+	}
+	return chain;
 }
 
 /// Build and return a chain with at least three headers.
 /// The chain should start with a proper genesis header,
 /// but the entire chain should NOT be valid.
 fn build_an_invalid_chain() -> Vec<Header> {
-    todo!("Exercise 5")
+	let g = Header::genesis();
+	let curr_header = g.clone();
+	let mut chain = vec![curr_header.clone()];
+	for _ in 0..2 {
+		chain.push(curr_header.child());
+	}
+	return chain;
 }
 
 // To run these tests: `cargo test bc_1
 #[test]
 fn bc_1_genesis_block_height() {
-    let g = Header::genesis();
-    assert!(g.height == 0);
+	let g = Header::genesis();
+	assert!(g.height == 0);
 }
 
 #[test]
 fn bc_1_genesis_block_parent() {
-    let g = Header::genesis();
-    assert!(g.parent == 0);
+	let g = Header::genesis();
+	assert!(g.parent == 0);
 }
 
 #[test]
 fn bc_1_child_block_height() {
-    let g = Header::genesis();
-    let b1 = g.child();
-    assert!(b1.height == 1);
+	let g = Header::genesis();
+	let b1 = g.child();
+	assert!(b1.height == 1);
 }
 
 #[test]
 fn bc_1_child_block_parent() {
-    let g = Header::genesis();
-    let b1 = g.child();
-    assert!(b1.parent == hash(&g));
+	let g = Header::genesis();
+	let b1 = g.child();
+	assert!(b1.parent == hash(&g));
 }
 
 #[test]
 fn bc_1_verify_genesis_only() {
-    let g = Header::genesis();
+	let g = Header::genesis();
 
-    assert!(g.verify_sub_chain(&[]));
+	assert!(g.verify_sub_chain(&[]));
 }
 
 #[test]
 fn bc_1_verify_three_blocks() {
-    let g = Header::genesis();
-    let b1 = g.child();
-    let b2 = b1.child();
+	let g = Header::genesis();
+	let b1 = g.child();
+	let b2 = b1.child();
 
-    assert!(g.verify_sub_chain(&[b1, b2]));
+	assert!(g.verify_sub_chain(&[b1, b2]));
 }
 
 #[test]
 fn bc_1_cant_verify_invalid_height() {
-    // This and following tests use the student's own verify function so as
-    // not to give away the solution to writing that function.
-    let g = Header::genesis();
-    let mut b1 = g.child();
-    b1.height = 10;
+	// This and following tests use the student's own verify function so as
+	// not to give away the solution to writing that function.
+	let g = Header::genesis();
+	let mut b1 = g.child();
+	b1.height = 10;
 
-    assert!(!g.verify_sub_chain(&[b1]))
+	assert!(!g.verify_sub_chain(&[b1]))
 }
 
 #[test]
 fn bc_1_cant_verify_invalid_parent() {
-    // This test chooses to use the student's own verify function so as
-    // not to give away the solution to writing that function.
-    let g = Header::genesis();
-    let mut b1 = g.child();
-    b1.parent = 10;
+	// This test chooses to use the student's own verify function so as
+	// not to give away the solution to writing that function.
+	let g = Header::genesis();
+	let mut b1 = g.child();
+	b1.parent = 10;
 
-    assert!(!g.verify_sub_chain(&[b1]))
+	assert!(!g.verify_sub_chain(&[b1]))
 }
 
 #[test]
 fn bc_1_verify_chain_length_five() {
-    // This test chooses to use the student's own verify function.
-    // This should be relatively safe given that we have already tested that function.
-    let chain = build_valid_chain_length_5();
-    assert!(chain[0].verify_sub_chain(&chain[1..]))
+	// This test chooses to use the student's own verify function.
+	// This should be relatively safe given that we have already tested that function.
+	let chain = build_valid_chain_length_5();
+	assert!(chain[0].verify_sub_chain(&chain[1..]))
 }
 
 #[test]
 fn bc_1_invalid_chain_is_really_invalid() {
-    // This test chooses to use the student's own verify function.
-    // This should be relatively safe given that we have already tested that function.
-    let invalid_chain = build_an_invalid_chain();
-    assert!(!invalid_chain[0].verify_sub_chain(&invalid_chain[1..]))
+	// This test chooses to use the student's own verify function.
+	// This should be relatively safe given that we have already tested that function.
+	let invalid_chain = build_an_invalid_chain();
+	assert!(!invalid_chain[0].verify_sub_chain(&invalid_chain[1..]))
 }

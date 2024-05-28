@@ -8,3 +8,4 @@ license = "GPL-3.0-or-later"
 
 [dependencies]
 anyhow = "1.0.86"
+rand = "0.8.5"
